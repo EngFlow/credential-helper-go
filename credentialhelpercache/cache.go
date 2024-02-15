@@ -34,7 +34,9 @@ const (
 // Options represents options for the Credential Helper cache.
 type Options struct {
 	// TTL specifies the time to cache credentials before invoking
-	// the Credential Helper again.
+	// the Credential Helper again if the response from the
+	// credential helper did not include when the credentials
+	// expire.
 	//
 	// If not set, TTL defaults to `DefaultCacheDuration`.
 	TTL time.Duration
@@ -76,6 +78,8 @@ type CachingCredentialHelper interface {
 type cachingCredentialHelper struct {
 	credentialhelper.CredentialHelperBase
 
+	options Options
+
 	delegate credentialhelper.CredentialHelper
 
 	cacheMutex sync.Mutex
@@ -91,7 +95,7 @@ func (c *cachingCredentialHelper) GetCredentials(ctx context.Context, request *c
 		return nil, errors.New("Cannot get credentials from closed Credential Helper")
 	}
 
-	if entry := c.cache.Get(*request); entry != nil {
+	if entry := c.cache.Get(*request); entry != nil && !entry.IsExpired() {
 		response := entry.Value()
 		return &response, nil
 	}
@@ -101,8 +105,11 @@ func (c *cachingCredentialHelper) GetCredentials(ctx context.Context, request *c
 		return nil, err
 	}
 
-	// TTL of 0 indicates to use the TTL specified when creating the cache.
-	c.cache.Set(*request, *response /* ttl= */, 0)
+	ttl := c.options.TTL
+	if response.Expires != nil {
+		ttl = response.Expires.Sub(time.Now())
+	}
+	c.cache.Set(*request, *response, ttl)
 
 	return response, nil
 }

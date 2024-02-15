@@ -17,11 +17,16 @@ package credentialhelper_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/EngFlow/credential-helper-go"
 )
+
+func asPointer[T any](value T) *T {
+	return &value
+}
 
 func TestParseGetCredentialsRequestFromString(t *testing.T) {
 	var request1 credentialhelper.GetCredentialsRequest
@@ -116,5 +121,43 @@ func TestParseGetCredentialsResponseFromStringWithExtraFields(t *testing.T) {
 		},
 		response1); diff != "" {
 		t.Errorf("(-want +got):\n%s", diff)
+	}
+}
+
+func TestParseGetCredentialsResponseFromStringWithExpires(t *testing.T) {
+	var response1 credentialhelper.GetCredentialsResponse
+	if err := json.Unmarshal(
+		[]byte(`
+			{
+				"headers": {
+					"header1": ["value1"]
+				},
+				"expires": "1970-09-28T23:46:29-12:00"
+			}`),
+		&response1); err != nil {
+		t.Error(err)
+	}
+
+	if diff := cmp.Diff(
+		credentialhelper.GetCredentialsResponse{
+			Headers: map[string][]string{
+				"header1": {"value1"},
+			},
+			Expires: asPointer(time.UnixMilli(23456789 * 1000)),
+		},
+		response1); diff != "" {
+		t.Errorf("(-want +got):\n%s", diff)
+	}
+}
+
+func TestParseGetCredentialsResponseFromStringWithInvalidExpires(t *testing.T) {
+	var response1 credentialhelper.GetCredentialsResponse
+	if err := json.Unmarshal(
+		[]byte(`
+			{
+				"expires": "foo"
+			}`),
+		&response1); err == nil {
+		t.Error("Expected error, got nil")
 	}
 }

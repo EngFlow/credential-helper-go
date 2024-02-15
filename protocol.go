@@ -14,12 +14,22 @@
 
 package credentialhelper
 
+import (
+	"time"
+)
+
 // GetCredentialsRequest represents the request for the `get` command of the Helper Protocol.
 type GetCredentialsRequest struct {
+	// The URI to get credentials for.
 	URI string `json:"uri"`
 }
 
 // GetCredentialsResponse represents the response for the `get` command of the Helper Protocol.
 type GetCredentialsResponse struct {
+	// The headers containing credentials to add to all requests to the URI.
 	Headers map[string][]string `json:"headers"`
+
+	// The time the credentials expire and stop being valid for new requests,
+	// formatted following [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339.html).
+	Expires *time.Time `json:"expires"`
 }

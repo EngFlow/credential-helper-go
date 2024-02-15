@@ -35,11 +35,22 @@ type countingCredentialHelper struct {
 func (c *countingCredentialHelper) GetCredentials(ctx context.Context, request *credentialhelper.GetCredentialsRequest, extraParameters ...string) (*credentialhelper.GetCredentialsResponse, error) {
 	count := c.counter.Add(1)
 
+	var expires *time.Time
+	if len(extraParameters) >= 1 {
+		ttl, err := time.ParseDuration(extraParameters[0])
+		if err != nil {
+			return nil, err
+		}
+
+		var time = time.Now().Add(ttl)
+		expires = &time
+	}
 	return &credentialhelper.GetCredentialsResponse{
 		Headers: map[string][]string{
 			"uri":   {request.URI},
 			"count": {fmt.Sprintf("%v", count)},
 		},
+		Expires: expires,
 	}, nil
 }
 
@@ -94,7 +105,8 @@ func ExampleHelperProcess() {
 		context.Background(),
 		&credentialhelper.GetCredentialsRequest{
 			URI: "https://example.com/foo",
-		})
+		},
+		"1s")
 	if err != nil {
 		log.Fatalf("Error reading credentials from cache: %v", err)
 		return
@@ -123,6 +135,8 @@ func ExampleHelperProcess() {
 	}
 	fmt.Printf("response 6: %v\n", response6.Headers)
 
+	time.Sleep(3 * time.Second)
+
 	response7, err := helper.GetCredentials(
 		context.Background(),
 		&credentialhelper.GetCredentialsRequest{
@@ -141,5 +155,5 @@ func ExampleHelperProcess() {
 	// response 4: map[count:[3] uri:[https://example.com/foo]]
 	// response 5: map[count:[4] uri:[https://example.com/bar]]
 	// response 6: map[count:[4] uri:[https://example.com/bar]]
-	// response 7: map[count:[3] uri:[https://example.com/foo]]
+	// response 7: map[count:[5] uri:[https://example.com/foo]]
 }
