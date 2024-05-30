@@ -15,6 +15,7 @@
 package credentialhelper
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -32,4 +33,21 @@ type GetCredentialsResponse struct {
 	// The time the credentials expire and stop being valid for new requests,
 	// formatted following [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339.html).
 	Expires *time.Time `json:"expires"`
+}
+
+func (resp GetCredentialsResponse) MarshalJSON() ([]byte, error) {
+	// By default, time.Time is marshaled to a string with time.RFC3339Nano
+	// instead of RFC3339, and Bazel rejects that format. We implement
+	// json.Marshaler here to override that.
+	v := struct {
+		Headers map[string][]string `json:"headers"`
+		Expires *string             `json:"expires"`
+	}{
+		Headers: resp.Headers,
+	}
+	if resp.Expires != nil {
+		expires := resp.Expires.Format(time.RFC3339)
+		v.Expires = &expires
+	}
+	return json.Marshal(v)
 }

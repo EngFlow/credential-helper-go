@@ -15,6 +15,7 @@
 package credentialhelper_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 	"time"
@@ -159,5 +160,22 @@ func TestParseGetCredentialsResponseFromStringWithInvalidExpires(t *testing.T) {
 			}`),
 		&response1); err == nil {
 		t.Error("Expected error, got nil")
+	}
+}
+
+func TestMarshalExpiresTimeWithRFC3339(t *testing.T) {
+	loc := time.FixedZone("Bogo Standard Time", 42*60)
+	expires := time.Date(2001, 2, 3, 4, 5, 6, 7, loc)
+	resp := credentialhelper.GetCredentialsResponse{
+		Headers: map[string][]string{"a": {"b"}},
+		Expires: &expires,
+	}
+	got, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte(`{"headers":{"a":["b"]},"expires":"2001-02-03T04:05:06+00:42"}`)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("got %q; want %q", got, want)
 	}
 }
