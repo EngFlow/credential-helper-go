@@ -15,8 +15,10 @@
 package credentialhelper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -53,6 +55,8 @@ func (c *client) GetCredentials(ctx context.Context, request *GetCredentialsRequ
 
 func invoke[RequestT any, ResponseT any](ctx context.Context, credentialHelperPath string, request *RequestT, response *ResponseT, extraArgs ...string) error {
 	cmd := exec.CommandContext(ctx, credentialHelperPath, extraArgs...)
+	errBytes := &bytes.Buffer{}
+	cmd.Stderr = errBytes
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("could not open stdin of credential helper: %w", err)
@@ -73,11 +77,15 @@ func invoke[RequestT any, ResponseT any](ctx context.Context, credentialHelperPa
 		return fmt.Errorf("could not write request to credential helper: %w", err)
 	}
 
-	if err := json.NewDecoder(stdout).Decode(response); err != nil {
+	if err := json.NewDecoder(stdout).Decode(response); err != nil && !errors.Is(err, io.EOF) {
 		return fmt.Errorf("could not read response from credential helper: %w", err)
 	}
 
-	return cmd.Wait()
+	err = cmd.Wait()
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		exitErr.Stderr = errBytes.Bytes()
+	}
+	return err
 }
 
 func writeRequest(stdin io.WriteCloser, request any) error {
