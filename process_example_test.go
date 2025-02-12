@@ -29,7 +29,7 @@ func (e *exampleCredentialHelper) GetCredentials(ctx context.Context, request *c
 	return nil, errors.New("example does not provide credentials")
 }
 
-func ExampleHelperProcess() {
+func Example_helperProcess() {
 	credentialhelper.StartCredentialHelper(&exampleCredentialHelper{})
 
 	panic("UNREACHED")

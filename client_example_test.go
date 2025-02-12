@@ -26,7 +26,7 @@ const (
 	CredentialHelperEnvironmentVariable = "REAL_CREDENTIAL_HELPER"
 )
 
-func ExampleClient() {
+func Example_client() {
 	credentialHelperPath := os.Getenv(CredentialHelperEnvironmentVariable)
 	if credentialHelperPath == "" {
 		fmt.Fprintln(os.Stderr, CredentialHelperEnvironmentVariable+" not set")

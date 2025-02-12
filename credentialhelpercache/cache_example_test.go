@@ -54,7 +54,7 @@ func (c *countingCredentialHelper) GetCredentials(ctx context.Context, request *
 	}, nil
 }
 
-func ExampleHelperProcess() {
+func Example_helperProcess() {
 	helper, err := credentialhelpercache.New(
 		&countingCredentialHelper{},
 		credentialhelpercache.Options{
