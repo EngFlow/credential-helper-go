@@ -18,9 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 )
 
@@ -54,47 +52,32 @@ func (c *client) GetCredentials(ctx context.Context, request *GetCredentialsRequ
 }
 
 func invoke[RequestT any, ResponseT any](ctx context.Context, credentialHelperPath string, request *RequestT, response *ResponseT, extraArgs ...string) error {
-	cmd := exec.CommandContext(ctx, credentialHelperPath, extraArgs...)
-	errBytes := &bytes.Buffer{}
-	cmd.Stderr = errBytes
-	stdin, err := cmd.StdinPipe()
+	stdin, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("could not open stdin of credential helper: %w", err)
+		return err
 	}
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		defer stdin.Close()
-		return fmt.Errorf("could not open stdout of credential helper: %w", err)
-	}
-	defer stdout.Close()
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd := exec.CommandContext(ctx, credentialHelperPath, extraArgs...)
+	cmd.Stdin = bytes.NewBuffer(stdin)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("could not start credential helper: %w", err)
 	}
-
-	if err := writeRequest(stdin, request); err != nil {
-		return fmt.Errorf("could not write request to credential helper: %w", err)
+	if err := cmd.Wait(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitErr.Stderr = stderr.Bytes()
+		}
+		return fmt.Errorf("error running credential helper: %w", err)
 	}
 
-	if err := json.NewDecoder(stdout).Decode(response); err != nil && !errors.Is(err, io.EOF) {
+	stdoutBytes := stdout.Bytes()
+	if err := json.Unmarshal(stdoutBytes, response); err != nil {
 		return fmt.Errorf("could not read response from credential helper: %w", err)
-	}
-
-	err = cmd.Wait()
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		exitErr.Stderr = errBytes.Bytes()
-	}
-	return err
-}
-
-func writeRequest(stdin io.WriteCloser, request any) error {
-	defer stdin.Close()
-
-	if err := json.NewEncoder(stdin).Encode(request); err != nil {
-		// This can happen if the helper prints a static set of credentials without reading from
-		// stdin (e.g., with a simple shell script running `echo "{...}"`). This is fine to
-		// ignore.
 	}
 
 	return nil
