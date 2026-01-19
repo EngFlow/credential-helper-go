@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/EngFlow/credential-helper-go"
+	credentialhelper "github.com/EngFlow/credential-helper-go"
 )
 
 const (
